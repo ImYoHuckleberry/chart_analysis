@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objs as go
 
-# Load and cache data
 @st.cache_data
 def load_data():
     df = pd.read_csv("NASDAQ_AMD, 1D_pp.csv")
@@ -63,13 +62,7 @@ st.sidebar.write(f"**Start Marker:** idx {st.session_state['start_idx']}, {start
 st.sidebar.write(f"**End Marker:** idx {st.session_state['end_idx']}, {end_row['time']}, price {end_row['close']}")
 st.sidebar.write(f"**Region Size:** {region_size} candles")
 
-# --- Handle axis range for persistent zoom ---
-if 'xaxis_range' not in st.session_state:
-    st.session_state['xaxis_range'] = None
-if 'yaxis_range' not in st.session_state:
-    st.session_state['yaxis_range'] = None
-
-# Create Plotly figure
+# --- Create Plotly figure (no zoom persistence) ---
 fig = go.Figure(data=[go.Candlestick(
     x=df['time'],
     open=df['open'],
@@ -85,38 +78,3 @@ fig.add_vrect(
     layer="below", line_width=0,
 )
 fig.add_vline(x=start_row['time'], line_width=2, line_color="green")
-fig.add_vline(x=end_row['time'], line_width=2, line_color="red")
-
-# If an axis range is stored, apply it
-if st.session_state['xaxis_range']:
-    fig.update_xaxes(range=st.session_state['xaxis_range'])
-if st.session_state['yaxis_range']:
-    fig.update_yaxes(range=st.session_state['yaxis_range'])
-
-fig.update_layout(
-    xaxis_rangeslider_visible=False,
-    dragmode="zoom",
-    margin=dict(l=20, r=20, t=20, b=20),
-    height=600,
-    showlegend=False
-)
-
-# Show chart, capture zoom/pan state
-plotly_events = st.plotly_chart(fig, use_container_width=True, key="main_chart", 
-    config={"displayModeBar": True, "scrollZoom": True}, 
-    on_change=None,  # prevents rerun when zooming
-    )
-relayout_data = st.session_state.get("plotly_relayout_data", None)
-
-# Use Plotly events to capture zoom/pan
-# (Streamlit 1.17+ supports returning relayoutData from st.plotly_chart)
-relayout_data = st.get_plotly_events("main_chart", override_height=600, override_width=None, key="main_plotly_events")
-if relayout_data:
-    for d in relayout_data:
-        if "xaxis.range[0]" in d and "xaxis.range[1]" in d:
-            st.session_state['xaxis_range'] = [d["xaxis.range[0]"], d["xaxis.range[1]"]]
-        if "yaxis.range[0]" in d and "yaxis.range[1]" in d:
-            st.session_state['yaxis_range'] = [d["yaxis.range[0]"], d["yaxis.range[1]"]]
-
-st.info("Zoom and pan using your mouse. The current view will remain when you move the region markers.")
-
