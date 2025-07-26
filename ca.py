@@ -51,12 +51,15 @@ if main_mode == "Create New Trade":
     st.sidebar.subheader("Create a Trade")
     trade_name = st.sidebar.text_input("Trade Name")
     if st.sidebar.button("Create Trade") and trade_name:
+        # Unique trade number enforcement
+        while st.session_state['trade_id_counter'] in st.session_state['trades']:
+            st.session_state['trade_id_counter'] += 1
         new_trade_id = st.session_state['trade_id_counter']
         st.session_state['trades'][new_trade_id] = {'name': trade_name, 'regions': []}
         st.session_state['selected_trade_id'] = new_trade_id
         st.session_state['trade_id_counter'] += 1
-        st.success(f"Trade '{trade_name}' created. Proceed to region annotation.")
-        st.experimental_rerun() if hasattr(st, 'experimental_rerun') else st.rerun()
+        st.success(f"Trade #{new_trade_id} '{trade_name}' created. Proceed to region annotation.")
+        st.rerun()
 
 # --- SELECT OR EDIT EXISTING TRADE ---
 elif main_mode == "Select/Edit Existing Trade":
@@ -123,7 +126,7 @@ elif main_mode == "Select/Edit Existing Trade":
                 }
                 trade['regions'].append(region)
                 st.success("Region added.")
-                st.experimental_rerun() if hasattr(st, 'experimental_rerun') else st.rerun()
+                st.rerun()
 
         # --- MODIFY REGION ---
         elif reg_action == "Modify Region":
@@ -157,12 +160,12 @@ elif main_mode == "Select/Edit Existing Trade":
                         'color': region_color(category)
                     }
                     st.success("Region updated.")
-                    st.experimental_rerun() if hasattr(st, 'experimental_rerun') else st.rerun()
+                    st.rerun()
                 # Delete region
                 if st.sidebar.button("Delete Region", key="edit_delete_region"):
                     region_list.pop(reg_idx)
                     st.success("Region deleted.")
-                    st.experimental_rerun() if hasattr(st, 'experimental_rerun') else st.rerun()
+                    st.rerun()
             else:
                 st.sidebar.info("No regions to edit for this trade.")
     else:
@@ -177,10 +180,13 @@ if st.session_state['selected_trade_id'] and st.session_state['selected_trade_id
     regions_to_plot = st.session_state['trades'][st.session_state['selected_trade_id']]['regions']
 elif main_mode == "Create New Trade":
     regions_to_plot = []
+
+# --- Candle hovertext with index ---
 hovertexts = [
     f"Index: {idx}<br>Date: {row['time']}<br>Open: {row['open']}<br>High: {row['high']}<br>Low: {row['low']}<br>Close: {row['close']}"
     for idx, row in df.iterrows()
 ]
+
 fig = go.Figure(data=[go.Candlestick(
     x=df['time'],
     open=df['open'],
@@ -220,3 +226,34 @@ if regions_to_plot:
     st.dataframe(region_table[["region_id", "category", "start_idx", "start_date", "end_idx", "end_date", "key_price", "tags", "notes"]])
 else:
     st.info("No regions defined for this trade yet.")
+
+# --- TRADE TABLE AND DELETE ---
+if st.session_state['trades']:
+    st.markdown("### All Trades")
+    trade_rows = []
+    for tid, t in st.session_state['trades'].items():
+        trade_rows.append({
+            "Trade #": tid,
+            "Name": t['name'],
+            "Region Count": len(t['regions']),
+            "Delete": f"Delete {tid}"
+        })
+    trade_table = pd.DataFrame(trade_rows)
+    # Display table with Delete buttons
+    for idx, row in trade_table.iterrows():
+        cols = st.columns([3, 6, 3, 2])
+        with cols[0]:
+            st.write(row["Trade #"])
+        with cols[1]:
+            st.write(row["Name"])
+        with cols[2]:
+            st.write(row["Region Count"])
+        with cols[3]:
+            if st.button("❌", key=f"del_trade_{row['Trade #']}"):
+                del st.session_state['trades'][row['Trade #']]
+                if st.session_state.get('selected_trade_id') == row['Trade #']:
+                    st.session_state['selected_trade_id'] = None
+                st.success(f"Trade #{row['Trade #']} deleted.")
+                st.rerun()
+else:
+    st.info("No trades yet. Use the sidebar to create your first trade.")
