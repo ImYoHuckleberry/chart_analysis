@@ -134,4 +134,14 @@ for region in regions_to_plot:
         layer="below", line_width=0,
         annotation_text=region['category'], annotation_position="top left"
     )
-    fig.add_vline(x=df.loc[region['start_idx'], 'time'], line_width=2, li]()]()_
+    fig.add_vline(x=df.loc[region['start_idx'], 'time'], line_width=2, line_color=region['color'])
+    fig.add_vline(x=df.loc[region['end_idx'], 'time'], line_width=2, line_color=region['color'])
+
+fig.update_layout(
+    xaxis_rangeslider_visible=False,
+    dragmode="zoom",
+    margin=dict(l=20, r=20, t=20, b=20),
+    height=600,
+    showlegend=False
+)
+st.plotly_chart(fig, use_container_width=True)
