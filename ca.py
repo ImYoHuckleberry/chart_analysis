@@ -90,29 +90,30 @@ elif main_mode == "Select/Edit Existing Trade":
                 end_idx = start_idx + 1
                 st.session_state[add_end_idx_key] = end_idx
 
-            sidebar_cols = st.sidebar.columns(2)
-            with sidebar_cols[0]:
-                start_idx = st.number_input("Start Index", min_value=0, max_value=max_idx, value=start_idx, step=1, key=add_start_idx_key)
-            with sidebar_cols[1]:
-                end_idx = st.number_input("End Index", min_value=start_idx + 1, max_value=max_idx, value=end_idx, step=1, key=add_end_idx_key)
-
             # Date option for quick jump (optional)
-            date_cols = st.sidebar.columns(2)
-            with date_cols[0]:
-                start_date = st.date_input("Start Date", pd.to_datetime(df.loc[start_idx, 'time']).date(), key="add_start_date")
-            with date_cols[1]:
-                end_date = st.date_input("End Date", pd.to_datetime(df.loc[end_idx, 'time']).date(), key="add_end_date")
-            # If user updates date, adjust index
-            if start_date:
-                idx_match = df[df['time'].str[:10] == str(start_date)].index
-                if not idx_match.empty:
-                    start_idx = idx_match[0]
-                    st.session_state[add_start_idx_key] = start_idx
-            if end_date:
-                idx_match = df[df['time'].str[:10] == str(end_date)].index
-                if not idx_match.empty:
-                    end_idx = idx_match[-1]
-                    st.session_state[add_end_idx_key] = end_idx
+date_cols = st.sidebar.columns(2)
+with date_cols[0]:
+    start_date = st.date_input("Start Date", pd.to_datetime(df.loc[start_idx, 'time']).date(), key="add_start_date")
+with date_cols[1]:
+    end_date = st.date_input("End Date", pd.to_datetime(df.loc[end_idx, 'time']).date(), key="add_end_date")
+
+# Provide buttons to update indices from date
+sidebar_cols = st.sidebar.columns(2)
+with sidebar_cols[0]:
+    start_idx = st.number_input("Start Index", min_value=0, max_value=max_idx, value=start_idx, step=1, key=add_start_idx_key)
+    if st.button("Use Start Date", key="btn_add_start_idx"):
+        idx_match = df[df['time'].str[:10] == str(start_date)].index
+        if not idx_match.empty:
+            st.session_state[add_start_idx_key] = idx_match[0]
+        st.rerun()
+with sidebar_cols[1]:
+    end_idx = st.number_input("End Index", min_value=start_idx + 1, max_value=max_idx, value=end_idx, step=1, key=add_end_idx_key)
+    if st.button("Use End Date", key="btn_add_end_idx"):
+        idx_match = df[df['time'].str[:10] == str(end_date)].index
+        if not idx_match.empty:
+            st.session_state[add_end_idx_key] = idx_match[-1]
+        st.rerun()
+
             # Re-correct if date input made end_idx < start_idx+1
             if end_idx < start_idx + 1:
                 end_idx = start_idx + 1
