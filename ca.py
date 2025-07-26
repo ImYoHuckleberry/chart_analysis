@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objs as go
 
-# Load data with caching
+# Load and cache data
 @st.cache_data
 def load_data():
     df = pd.read_csv("NASDAQ_AMD, 1D_pp.csv")
@@ -10,23 +10,23 @@ def load_data():
     return df
 
 df = load_data()
-st.set_page_config(layout="wide")
 max_idx = len(df) - 1
 
-# --- SIDEBAR ---
+st.set_page_config(layout="wide")
+
+# Sidebar: marker controls
 st.sidebar.header("Region Tools")
 
-# Init markers if needed
 if 'start_idx' not in st.session_state or st.session_state['start_idx'] >= max_idx:
     st.session_state['start_idx'] = 10
 if 'end_idx' not in st.session_state or st.session_state['end_idx'] >= max_idx:
     st.session_state['end_idx'] = 20
 
-# Fine control buttons (Start marker)
+# Fine control for markers (start)
 st.sidebar.write("**Start Marker Control**")
 col1, col2, col3 = st.sidebar.columns([1, 3, 1])
 with col1:
-    if st.button("−", key="start_dec", help="Move start marker left by 1"):
+    if st.button("−", key="start_dec"):
         st.session_state['start_idx'] = max(0, st.session_state['start_idx'] - 1)
 with col2:
     st.session_state['start_idx'] = st.slider(
@@ -34,14 +34,14 @@ with col2:
         value=st.session_state['start_idx'], step=1, key="start_slider"
     )
 with col3:
-    if st.button("+", key="start_inc", help="Move start marker right by 1"):
+    if st.button("+", key="start_inc"):
         st.session_state['start_idx'] = min(st.session_state['end_idx'] - 1, st.session_state['start_idx'] + 1)
 
-# Fine control buttons (End marker)
+# Fine control for markers (end)
 st.sidebar.write("**End Marker Control**")
 col1, col2, col3 = st.sidebar.columns([1, 3, 1])
 with col1:
-    if st.button("−", key="end_dec", help="Move end marker left by 1"):
+    if st.button("−", key="end_dec"):
         st.session_state['end_idx'] = max(st.session_state['start_idx'] + 1, st.session_state['end_idx'] - 1)
 with col2:
     st.session_state['end_idx'] = st.slider(
@@ -49,10 +49,10 @@ with col2:
         value=st.session_state['end_idx'], step=1, key="end_slider"
     )
 with col3:
-    if st.button("+", key="end_inc", help="Move end marker right by 1"):
+    if st.button("+", key="end_inc"):
         st.session_state['end_idx'] = min(max_idx, st.session_state['end_idx'] + 1)
 
-# Marker info
+# Marker info display
 start_row = df.loc[st.session_state['start_idx']]
 end_row = df.loc[st.session_state['end_idx']]
 region_size = st.session_state['end_idx'] - st.session_state['start_idx'] + 1
@@ -63,8 +63,13 @@ st.sidebar.write(f"**Start Marker:** idx {st.session_state['start_idx']}, {start
 st.sidebar.write(f"**End Marker:** idx {st.session_state['end_idx']}, {end_row['time']}, price {end_row['close']}")
 st.sidebar.write(f"**Region Size:** {region_size} candles")
 
-# Chart
-st.title("Interactive Stock Region Selector (Enhanced)")
+# --- Handle axis range for persistent zoom ---
+if 'xaxis_range' not in st.session_state:
+    st.session_state['xaxis_range'] = None
+if 'yaxis_range' not in st.session_state:
+    st.session_state['yaxis_range'] = None
+
+# Create Plotly figure
 fig = go.Figure(data=[go.Candlestick(
     x=df['time'],
     open=df['open'],
@@ -81,6 +86,13 @@ fig.add_vrect(
 )
 fig.add_vline(x=start_row['time'], line_width=2, line_color="green")
 fig.add_vline(x=end_row['time'], line_width=2, line_color="red")
+
+# If an axis range is stored, apply it
+if st.session_state['xaxis_range']:
+    fig.update_xaxes(range=st.session_state['xaxis_range'])
+if st.session_state['yaxis_range']:
+    fig.update_yaxes(range=st.session_state['yaxis_range'])
+
 fig.update_layout(
     xaxis_rangeslider_visible=False,
     dragmode="zoom",
@@ -88,6 +100,23 @@ fig.update_layout(
     height=600,
     showlegend=False
 )
-st.plotly_chart(fig, use_container_width=True)
 
-st.info("Zoom and pan using your mouse. Use the sidebar to adjust region markers and view region info.")
+# Show chart, capture zoom/pan state
+plotly_events = st.plotly_chart(fig, use_container_width=True, key="main_chart", 
+    config={"displayModeBar": True, "scrollZoom": True}, 
+    on_change=None,  # prevents rerun when zooming
+    )
+relayout_data = st.session_state.get("plotly_relayout_data", None)
+
+# Use Plotly events to capture zoom/pan
+# (Streamlit 1.17+ supports returning relayoutData from st.plotly_chart)
+relayout_data = st.get_plotly_events("main_chart", override_height=600, override_width=None, key="main_plotly_events")
+if relayout_data:
+    for d in relayout_data:
+        if "xaxis.range[0]" in d and "xaxis.range[1]" in d:
+            st.session_state['xaxis_range'] = [d["xaxis.range[0]"], d["xaxis.range[1]"]]
+        if "yaxis.range[0]" in d and "yaxis.range[1]" in d:
+            st.session_state['yaxis_range'] = [d["yaxis.range[0]"], d["yaxis.range[1]"]]
+
+st.info("Zoom and pan using your mouse. The current view will remain when you move the region markers.")
+
