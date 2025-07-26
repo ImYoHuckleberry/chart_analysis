@@ -25,7 +25,36 @@ if 'selected_trade_id' not in st.session_state:
     st.session_state['selected_trade_id'] = None
 
 # -- Sidebar Controls for Region Marking --
+# --- Sidebar Controls for Region Marking ---
 st.sidebar.header("Region Tools")
+
+# Candle info on hover is already provided by Plotly tooltips.
+
+st.sidebar.markdown("**To select a region:**")
+st.sidebar.markdown("""
+- Hover on the chart to find the desired candle (index/time is shown in tooltip).
+- Enter the start and end candle **index** or **timestamp** below.
+- All other controls/annotations work as before.
+""")
+
+# Manual entry for start/end (index-based, can add timestamp-based if you wish)
+start_idx = st.sidebar.number_input("Start Candle Index", min_value=0, max_value=max_idx, value=st.session_state.get('start_idx', 10), step=1, key="start_idx_input")
+end_idx = st.sidebar.number_input("End Candle Index", min_value=start_idx+1, max_value=max_idx, value=st.session_state.get('end_idx', 20), step=1, key="end_idx_input")
+
+# Update session state
+st.session_state['start_idx'] = start_idx
+st.session_state['end_idx'] = end_idx
+
+start_row = df.loc[start_idx]
+end_row = df.loc[end_idx]
+region_size = end_idx - start_idx + 1
+
+st.sidebar.markdown("---")
+st.sidebar.subheader("Region Info")
+st.sidebar.write(f"**Start Marker:** idx {start_idx}, {start_row['time']}, price {start_row['close']}")
+st.sidebar.write(f"**End Marker:** idx {end_idx}, {end_row['time']}, price {end_row['close']}")
+st.sidebar.write(f"**Region Size:** {region_size} candles")
+
 
 # Marker controls
 if 'start_idx' not in st.session_state or st.session_state['start_idx'] >= max_idx:
