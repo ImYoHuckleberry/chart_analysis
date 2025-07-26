@@ -177,23 +177,17 @@ if st.session_state['selected_trade_id'] and st.session_state['selected_trade_id
     regions_to_plot = st.session_state['trades'][st.session_state['selected_trade_id']]['regions']
 elif main_mode == "Create New Trade":
     regions_to_plot = []
-
+hovertexts = [
+    f"Index: {idx}<br>Date: {row['time']}<br>Open: {row['open']}<br>High: {row['high']}<br>Low: {row['low']}<br>Close: {row['close']}"
+    for idx, row in df.iterrows()
+]
 fig = go.Figure(data=[go.Candlestick(
     x=df['time'],
     open=df['open'],
     high=df['high'],
     low=df['low'],
     close=df['close'],
-    customdata=df['candle_idx'],
-    hovertemplate=(
-        'Index: %{customdata}<br>'
-        'Date: %{x}<br>'
-        'Open: %{open}<br>'
-        'High: %{high}<br>'
-        'Low: %{low}<br>'
-        'Close: %{close}<br>'
-        '<extra></extra>'
-    ),
+    hovertext=hovertexts,
     name="Candles"
 )])
 for region in regions_to_plot:
