@@ -96,14 +96,12 @@ if st.sidebar.button("Save Region"):
     region = {
         'region_id': len(st.session_state['regions']) + 1,
         'trade_id': trade_id,
-        'start_idx': st.session_state['start_idx'],
-        'end_idx': st.session_state['end_idx'],
         'category': category,
         'key_price': key_price,
         'tags': tags,
         'notes': notes,
-        'symbol': "AMD",  # Set this dynamically for different charts
-        'interval': "1D", # Ditto, or get from user input
+        'symbol': "AMD",  # Set this dynamically for different charts if needed
+        'interval': "1D", # Ditto, or get from user input if needed
         'start_idx': st.session_state['start_idx'],
         'end_idx': st.session_state['end_idx'],
         'start_time': df.loc[st.session_state['start_idx'], 'time'],
@@ -161,13 +159,23 @@ st.plotly_chart(fig, use_container_width=True)
 
 st.info("Use the sidebar to annotate regions and assign them to trades. Trade regions are highlighted by type (green, red, blue).")
 
-# -- Region Table Display --
+# -- Region Table Display and Delete Button --
 st.markdown("### Annotated Regions")
-st.dataframe(pd.DataFrame(st.session_state['regions']))
+region_df = pd.DataFrame(st.session_state['regions'])
 
-event = {
-    'event_type': event_type,
-    'index': event_idx,
-    'timestamp': df.loc[event_idx, 'time'],
-    'note': event_note
-}
+if not region_df.empty:
+    for i, region in region_df.iterrows():
+        cols = st.columns([6, 1])
+        with cols[0]:
+            st.write(
+                f"**Region {region['region_id']}** (Trade {region['trade_id']}): "
+                f"{region['category']} [{region['start_time']} to {region['end_time']}] "
+                f"Key Price: {region['key_price']}, Tags: {region['tags']}"
+            )
+        with cols[1]:
+            if st.button(f"Delete {region['region_id']}", key=f"del_{region['region_id']}"):
+                st.session_state['regions'] = [r for r in st.session_state['regions'] if r['region_id'] != region['region_id']]
+                st.experimental_rerun()
+    st.write(region_df.drop(columns=['events', 'color']))
+else:
+    st.info("No regions have been annotated yet.")
