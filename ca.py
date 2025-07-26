@@ -46,7 +46,6 @@ if st.session_state['show_left_sidebar']:
                     '<span style="cursor:pointer;font-size:22px;color:#999;" '
                     'onclick="window.parent.postMessage({streamlitCloseSidebar: \'left\'}, \'*\')">×</span>'
                     '</div>', unsafe_allow_html=True)
-        # Add JS event for chevron/close
         st.write('<script>'
                  'window.addEventListener("message",e=>{if(e.data.streamlitCloseSidebar==="left"){window.parent.document.querySelector("aside[data-testid=\'stSidebar\']").style.display="none";fetch("/_stcore/closeleft");}});'
                  '</script>', unsafe_allow_html=True)
@@ -73,7 +72,6 @@ if st.session_state['show_left_sidebar']:
                 st.success("Region updated with new annotation!")
                 st.experimental_rerun()
 
-# Control to restore left sidebar if hidden
 if not st.session_state['show_left_sidebar']:
     left_toggle_slot = st.empty()
     with left_toggle_slot:
@@ -104,7 +102,6 @@ if st.session_state['show_right_sidebar']:
         '<script>document.getElementById("close-right-sidebar").onclick = () => {window.parent.postMessage({streamlitCloseSidebar:"right"}, "*");};</script>',
         unsafe_allow_html=True
     )
-    # JS handler for closing right sidebar
     st.write('<script>window.addEventListener("message",e=>{if(e.data.streamlitCloseSidebar==="right"){document.querySelectorAll("div[style*=position\\:fixed]").forEach(d=>d.style.display="none");fetch("/_stcore/closeright");}});</script>', unsafe_allow_html=True)
 
 if not st.session_state['show_right_sidebar']:
@@ -158,7 +155,6 @@ st.plotly_chart(fig, use_container_width=True)
 # ========== TRADES PANEL BELOW CHART ==========
 st.markdown("### Trades")
 if not st.session_state['trades']:
-    # Table header with one empty row and add button
     trade_cols = st.columns([1, 4, 2, 1, 1])
     with trade_cols[0]: st.write("👁️")
     with trade_cols[1]: st.write("Trade # / Name")
@@ -170,37 +166,30 @@ if not st.session_state['trades']:
         if st.button("➕", key="add_first_trade", help="Add Trade"):
             st.session_state['show_add_trade'] = True
 else:
-    # Table rows for all trades
     for tid, trade in st.session_state['trades'].items():
         cols = st.columns([1, 4, 2, 1, 1])
-        # Eye toggle
         with cols[0]:
             newval = st.checkbox(get_eye(trade.get('show', False)), value=trade.get('show', False), key=f"show_trade_{tid}", label_visibility='collapsed')
             st.session_state['trades'][tid]['show'] = newval
-        # Trade #/Name
         with cols[1]:
             button_label = f"**#{tid}: {trade['name']}**"
             if st.button(button_label, key=f"trade_button_{tid}"):
                 st.session_state['selected_trade_id'] = tid
                 st.session_state['edit_region_idx'] = None
                 st.session_state['show_add_region'] = False
-        # Region count
         with cols[2]:
             st.write(f"{len(trade['regions'])}")
-        # Add region
         with cols[3]:
             if st.session_state.get('selected_trade_id') == tid:
                 if st.button("➕", key=f"add_region_{tid}"):
                     st.session_state['show_add_region'] = True
                     st.session_state['edit_region_idx'] = None
-        # Delete trade
         with cols[4]:
             if st.button("×", key=f"delete_trade_{tid}"):
                 del st.session_state['trades'][tid]
                 if st.session_state.get('selected_trade_id') == tid:
                     st.session_state['selected_trade_id'] = None
                 st.experimental_rerun()
-    # Add trade row at end if desired
     add_row = st.columns([10, 1])
     with add_row[1]:
         if st.button("➕", key="add_new_trade", help="Add Trade"):
@@ -243,37 +232,28 @@ if st.session_state.get('selected_trade_id') in st.session_state['trades']:
     else:
         for i, region in enumerate(trade["regions"]):
             cols = st.columns([1, 3, 3, 2, 2, 2, 1, 1])
-            # Eye toggle
             with cols[0]:
                 show = st.checkbox(get_eye(region.get('show', True)), value=region.get('show', True), key=f"show_region_{trade['name']}_{region['region_id']}", label_visibility='collapsed')
                 trade["regions"][i]["show"] = show
-            # Category
             with cols[1]:
                 st.write(region.get("category", ""))
-            # Features
             with cols[2]:
                 feats = ", ".join([region.get("feature1", ""), region.get("feature2", "")])
                 st.write(feats)
-            # Start
             with cols[3]:
                 st.write(f"{region['start_idx']} ({region['start_time'][:10]})")
-            # End
             with cols[4]:
                 st.write(f"{region['end_idx']} ({region['end_time'][:10]})")
-            # Key price
             with cols[5]:
                 st.write(region["key_price"])
-            # Edit
             with cols[6]:
                 if st.button("✎", key=f"edit_region_{trade['name']}_{region['region_id']}"):
                     st.session_state['edit_region_idx'] = i
                     st.session_state['show_add_region'] = False
-            # Trash
             with cols[7]:
                 if st.button("×", key=f"delete_region_{trade['name']}_{region['region_id']}"):
                     trade["regions"].pop(i)
                     st.experimental_rerun()
-            # --- Edit panel below the row ---
             if st.session_state.get('edit_region_idx') == i:
                 with st.expander(f"Edit Region {region['region_id']}", expanded=True):
                     start_idx = st.number_input("Start Index", min_value=0, max_value=max_idx, value=region["start_idx"], step=1, key=f"edit_region_start_idx_{i}")
@@ -306,9 +286,36 @@ if st.session_state.get('selected_trade_id') in st.session_state['trades']:
                     if st.button("Cancel", key=f"btn_cancel_edit_region_{i}"):
                         st.session_state['edit_region_idx'] = None
                         st.experimental_rerun()
-    # ADD REGION PANEL
     if st.session_state.get('show_add_region', False):
         with st.expander("Add Region", expanded=True):
             start_idx = st.number_input("Start Index", min_value=0, max_value=max_idx, value=10, step=1, key="add_region_start_idx")
             end_idx = st.number_input("End Index", min_value=start_idx+1, max_value=max_idx, value=start_idx+5, step=1, key="add_region_end_idx")
-            category = st.selectbox("Category", ["Bullish Run-Up", "Bearish Run-Down", "Entry Region"],
+            category = st.selectbox("Category", ["Bullish Run-Up", "Bearish Run-Down", "Entry Region"], key="add_region_category")
+            feature1 = st.selectbox("Feature 1", ["Order Block", "Gap Up", "Gap Down", "Cumulative Delta Flip", "High Vol on Short Candle"], key="add_region_feature1")
+            feature2 = st.selectbox("Feature 2", ["None", "Volume Spike", "Trend Break", "Inside Bar"], key="add_region_feature2")
+            key_price = st.number_input("Key Price (Target/Stop/Entry)", value=float(df.loc[int(end_idx), 'close']), step=0.01, format="%.2f", key="add_region_key_price")
+            notes = st.text_area("Notes", key="add_region_notes")
+            if st.button("Save Region", key="btn_add_region"):
+                region = {
+                    'region_id': len(trade["regions"]) + 1,
+                    'category': category,
+                    'feature1': feature1,
+                    'feature2': feature2,
+                    'notes': notes,
+                    'start_idx': int(start_idx),
+                    'end_idx': int(end_idx),
+                    'start_time': df.loc[int(start_idx), 'time'],
+                    'end_time': df.loc[int(end_idx), 'time'],
+                    'color': region_color(category),
+                    'show': True,
+                    'key_price': key_price
+                }
+                trade["regions"].append(region)
+                st.session_state['show_add_region'] = False
+                st.success("Region added.")
+                st.experimental_rerun()
+            if st.button("Cancel", key="btn_cancel_add_region"):
+                st.session_state['show_add_region'] = False
+                st.experimental_rerun()
+else:
+    st.info("Select a trade above to view/add regions.")
