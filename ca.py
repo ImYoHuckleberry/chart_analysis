@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objs as go
 
-# Load data with caching
+# -- Data Loading --
 @st.cache_data
 def load_data():
     df = pd.read_csv("NASDAQ_AMD, 1D_pp.csv")
@@ -10,23 +10,32 @@ def load_data():
     return df
 
 df = load_data()
-st.set_page_config(layout="wide")
 max_idx = len(df) - 1
 
-# --- SIDEBAR ---
+st.set_page_config(layout="wide")
+
+# -- Session State for Regions --
+if 'regions' not in st.session_state:
+    st.session_state['regions'] = []
+
+if 'trade_id_counter' not in st.session_state:
+    st.session_state['trade_id_counter'] = 1
+
+if 'selected_trade_id' not in st.session_state:
+    st.session_state['selected_trade_id'] = None
+
+# -- Sidebar Controls for Region Marking --
 st.sidebar.header("Region Tools")
 
-# Init markers if needed
+# Marker controls
 if 'start_idx' not in st.session_state or st.session_state['start_idx'] >= max_idx:
     st.session_state['start_idx'] = 10
 if 'end_idx' not in st.session_state or st.session_state['end_idx'] >= max_idx:
     st.session_state['end_idx'] = 20
 
-# Fine control buttons (Start marker)
-st.sidebar.write("**Start Marker Control**")
 col1, col2, col3 = st.sidebar.columns([1, 3, 1])
 with col1:
-    if st.button("−", key="start_dec", help="Move start marker left by 1"):
+    if st.button("−", key="start_dec"):
         st.session_state['start_idx'] = max(0, st.session_state['start_idx'] - 1)
 with col2:
     st.session_state['start_idx'] = st.slider(
@@ -34,14 +43,12 @@ with col2:
         value=st.session_state['start_idx'], step=1, key="start_slider"
     )
 with col3:
-    if st.button("+", key="start_inc", help="Move start marker right by 1"):
+    if st.button("+", key="start_inc"):
         st.session_state['start_idx'] = min(st.session_state['end_idx'] - 1, st.session_state['start_idx'] + 1)
 
-# Fine control buttons (End marker)
-st.sidebar.write("**End Marker Control**")
 col1, col2, col3 = st.sidebar.columns([1, 3, 1])
 with col1:
-    if st.button("−", key="end_dec", help="Move end marker left by 1"):
+    if st.button("−", key="end_dec"):
         st.session_state['end_idx'] = max(st.session_state['start_idx'] + 1, st.session_state['end_idx'] - 1)
 with col2:
     st.session_state['end_idx'] = st.slider(
@@ -49,10 +56,9 @@ with col2:
         value=st.session_state['end_idx'], step=1, key="end_slider"
     )
 with col3:
-    if st.button("+", key="end_inc", help="Move end marker right by 1"):
+    if st.button("+", key="end_inc"):
         st.session_state['end_idx'] = min(max_idx, st.session_state['end_idx'] + 1)
 
-# Marker info
 start_row = df.loc[st.session_state['start_idx']]
 end_row = df.loc[st.session_state['end_idx']]
 region_size = st.session_state['end_idx'] - st.session_state['start_idx'] + 1
@@ -63,8 +69,68 @@ st.sidebar.write(f"**Start Marker:** idx {st.session_state['start_idx']}, {start
 st.sidebar.write(f"**End Marker:** idx {st.session_state['end_idx']}, {end_row['time']}, price {end_row['close']}")
 st.sidebar.write(f"**Region Size:** {region_size} candles")
 
-# Chart
-st.title("Interactive Stock Region Selector (Enhanced)")
+# -- Region Annotation Controls --
+st.sidebar.markdown("---")
+st.sidebar.subheader("Annotate Region")
+
+category = st.sidebar.selectbox("Category", [
+    "Bullish Run-Up", "Bearish Run-Down", "Entry Region"
+])
+
+trade_id_options = ["New Trade"] + sorted(set([r['trade_id'] for r in st.session_state['regions'] if r['trade_id'] is not None]))
+trade_id_sel = st.sidebar.selectbox("Trade Group", trade_id_options)
+
+if trade_id_sel == "New Trade":
+    trade_id = st.session_state['trade_id_counter']
+else:
+    trade_id = int(trade_id_sel)
+
+key_price = st.sidebar.number_input(
+    "Key Price (Target/Stop/Entry)", value=float(end_row['close']), step=0.01, format="%.2f"
+)
+tags = st.sidebar.text_input("Tags (comma-separated)")
+notes = st.sidebar.text_area("Notes")
+
+# -- Save Region Button --
+if st.sidebar.button("Save Region"):
+    region = {
+        'region_id': len(st.session_state['regions']) + 1,
+        'trade_id': trade_id,
+        'start_idx': st.session_state['start_idx'],
+        'end_idx': st.session_state['end_idx'],
+        'category': category,
+        'key_price': key_price,
+        'tags': tags,
+        'notes': notes,
+        'symbol': "AMD",  # Set this dynamically for different charts
+        'interval': "1D", # Ditto, or get from user input
+        'start_idx': st.session_state['start_idx'],
+        'end_idx': st.session_state['end_idx'],
+        'start_time': df.loc[st.session_state['start_idx'], 'time'],
+        'end_time': df.loc[st.session_state['end_idx'], 'time'],
+        'color': {'Bullish Run-Up': "green", 'Bearish Run-Down': "red", 'Entry Region': "blue"}[category],
+        'events': []
+    }
+    st.session_state['regions'].append(region)
+    if trade_id_sel == "New Trade":
+        st.session_state['trade_id_counter'] += 1
+    st.success(f"Region saved to Trade {trade_id}")
+
+# -- Trade Region Table/Selection --
+st.sidebar.markdown("---")
+st.sidebar.subheader("Trades and Regions")
+
+selected_trade = st.sidebar.selectbox(
+    "View Trade", ["All"] + sorted(set([str(r['trade_id']) for r in st.session_state['regions']]))
+)
+if selected_trade == "All":
+    regions_to_plot = st.session_state['regions']
+else:
+    regions_to_plot = [r for r in st.session_state['regions'] if str(r['trade_id']) == selected_trade]
+
+# -- Main Chart with Color Coding --
+st.title("Interactive Stock Trade Region Annotator")
+
 fig = go.Figure(data=[go.Candlestick(
     x=df['time'],
     open=df['open'],
@@ -73,14 +139,17 @@ fig = go.Figure(data=[go.Candlestick(
     close=df['close'],
     name="Candles"
 )])
-fig.add_vrect(
-    x0=start_row['time'],
-    x1=end_row['time'],
-    fillcolor="LightSalmon", opacity=0.3,
-    layer="below", line_width=0,
-)
-fig.add_vline(x=start_row['time'], line_width=2, line_color="green")
-fig.add_vline(x=end_row['time'], line_width=2, line_color="red")
+for region in regions_to_plot:
+    fig.add_vrect(
+        x0=df.loc[region['start_idx'], 'time'],
+        x1=df.loc[region['end_idx'], 'time'],
+        fillcolor=region['color'], opacity=0.3,
+        layer="below", line_width=0,
+        annotation_text=region['category'], annotation_position="top left"
+    )
+    fig.add_vline(x=df.loc[region['start_idx'], 'time'], line_width=2, line_color=region['color'])
+    fig.add_vline(x=df.loc[region['end_idx'], 'time'], line_width=2, line_color=region['color'])
+
 fig.update_layout(
     xaxis_rangeslider_visible=False,
     dragmode="zoom",
@@ -90,4 +159,15 @@ fig.update_layout(
 )
 st.plotly_chart(fig, use_container_width=True)
 
-st.info("Zoom and pan using your mouse. Use the sidebar to adjust region markers and view region info.")
+st.info("Use the sidebar to annotate regions and assign them to trades. Trade regions are highlighted by type (green, red, blue).")
+
+# -- Region Table Display --
+st.markdown("### Annotated Regions")
+st.dataframe(pd.DataFrame(st.session_state['regions']))
+
+event = {
+    'event_type': event_type,
+    'index': event_idx,
+    'timestamp': df.loc[event_idx, 'time'],
+    'note': event_note
+}
