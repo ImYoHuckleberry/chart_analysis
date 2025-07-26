@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.graph_objs as go
 
 # Load sample data (use a subset for demonstration)
-df = pd.read_csv("/mnt/data/NASDAQ_AMD, 1D_pp.csv")
+df = pd.read_csv("NASDAQ_AMD, 1D_pp.csv")
 df = df.iloc[-300:].reset_index(drop=True)  # last 300 candles for performance
 
 st.title("Interactive Stock Region Selector")
