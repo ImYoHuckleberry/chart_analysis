@@ -92,12 +92,6 @@ start_row = df.loc[st.session_state['start_idx']]
 end_row = df.loc[st.session_state['end_idx']]
 region_size = st.session_state['end_idx'] - st.session_state['start_idx'] + 1
 
-st.sidebar.markdown("---")
-st.sidebar.subheader("Region Info")
-st.sidebar.write(f"**Start Marker:** idx {st.session_state['start_idx']}, {start_row['time']}, price {start_row['close']}")
-st.sidebar.write(f"**End Marker:** idx {st.session_state['end_idx']}, {end_row['time']}, price {end_row['close']}")
-st.sidebar.write(f"**Region Size:** {region_size} candles")
-
 # -- Region Annotation Controls --
 st.sidebar.markdown("---")
 st.sidebar.subheader("Annotate Region")
